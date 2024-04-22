@@ -1,1 +1,1 @@
-export * from './CredentialStorage';
+export * from './storage';

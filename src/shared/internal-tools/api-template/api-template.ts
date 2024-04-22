@@ -1,7 +1,5 @@
-import { QueryParam } from '@/shared';
-import { EntityId } from '@/shared/base-interfaces';
 import axios, { AxiosRequestConfig } from 'axios';
-import { compileUrlPath } from './api-tools';
+import { EntityId, QueryParam } from './interfaces';
 
 export class APITemplate {
   private url;
@@ -14,7 +12,7 @@ export class APITemplate {
     queryParams?: QueryParam,
     RequestConfig?: AxiosRequestConfig,
   ) {
-    const url = compileUrlPath(this.url, queryParams);
+    const url = this.compileUrlPath(this.url, queryParams);
     return await axios.get<FetchType>(url, RequestConfig);
   }
 
@@ -42,5 +40,18 @@ export class APITemplate {
   async remove<FetchType>(id: EntityId, RequestConfig?: AxiosRequestConfig) {
     const url = `${this.url}${id}`;
     return await axios.delete<FetchType>(url, RequestConfig);
+  }
+
+  compileUrlPath(url: string, queryParams?: QueryParam): string {
+    if (!queryParams) return url;
+
+    if (Object.keys(queryParams).length > 0) {
+      url += '?';
+    }
+
+    Object.entries(queryParams).forEach(([qn, qv]) => {
+      url += `${qn}=${qv}&`;
+    });
+    return url;
   }
 }

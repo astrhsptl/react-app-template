@@ -1,4 +1,4 @@
-FROM node:18-alpine as build
+FROM node:21-alpine as build
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ FROM nginx:alpine
 RUN apk upgrade --no-cache && \
     apk add --no-cache libgcc libstdc++
 
-COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
+COPY ./nginx.conf /etc/nginx/nginx.conf
 
 RUN rm -rf /usr/share/nginx/html/*
 
