@@ -24,6 +24,7 @@
     "react/react-in-jsx-scope": "off",
     "no-useless-escape": "off",
     "prettier/prettier": "warn",
+    "prefer-const": "off",
     "react/no-unescaped-entities": "off"
   }
 }

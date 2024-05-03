@@ -1,57 +1,115 @@
-import axios, { AxiosRequestConfig } from 'axios';
-import { EntityId, QueryParam } from './interfaces';
+import { API_SERVER_URL } from '@/shared';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { CSI } from '..';
+import { EntityId, PaginatedResult } from './interfaces';
 
-export class APITemplate {
+const DefaultTriesCount = 2;
+
+export class APITemplate<FetchType, RequestType> {
   private url;
-
   constructor(url: string) {
-    this.url = url;
+    this.url = `${API_SERVER_URL}/api/${url}/`;
   }
 
-  async fetchAll<FetchType>(
-    queryParams?: QueryParam,
-    RequestConfig?: AxiosRequestConfig,
-  ) {
-    const url = this.compileUrlPath(this.url, queryParams);
-    return await axios.get<FetchType>(url, RequestConfig);
+  async fetchAll(
+    RequestConfig: AxiosRequestConfig = {},
+    tries: number = DefaultTriesCount,
+  ): Promise<AxiosResponse<PaginatedResult<FetchType>>> {
+    return await axios
+      .get<
+        PaginatedResult<FetchType>
+      >(this.url, this.setAuthenticationHeader(RequestConfig))
+      .catch(() => {
+        if (tries === 0) {
+          throw new Error(`Item ${this.url} did not fetched!`);
+        }
+
+        return this.fetchAll(RequestConfig, tries - 1);
+      });
   }
 
-  async fetchByID<FetchType>(id: EntityId, RequestConfig?: AxiosRequestConfig) {
-    const url = `${this.url}${id}`;
-    return await axios.get<FetchType>(url, RequestConfig);
-  }
-
-  async create<FetchType, FetchTypeRequest>(
-    data: FetchTypeRequest,
-    RequestConfig?: AxiosRequestConfig,
-  ) {
-    return await axios.post<FetchType>(this.url, data, RequestConfig);
-  }
-
-  async update<FetchType, FetchTypeRequest>(
+  async fetchByID(
     id: EntityId,
-    data: FetchTypeRequest,
-    RequestConfig?: AxiosRequestConfig,
-  ) {
+    RequestConfig: AxiosRequestConfig = {},
+    tries: number = DefaultTriesCount,
+  ): Promise<AxiosResponse<FetchType>> {
     const url = `${this.url}${id}`;
-    return await axios.patch<FetchType>(url, data, RequestConfig);
+    return await axios
+      .get<FetchType>(url, this.setAuthenticationHeader(RequestConfig))
+      .catch(() => {
+        if (tries === 0) {
+          throw new Error(`Item ${this.url} did not fetched!`);
+        }
+
+        return this.fetchByID(id, RequestConfig, tries - 1);
+      });
   }
 
-  async remove<FetchType>(id: EntityId, RequestConfig?: AxiosRequestConfig) {
-    const url = `${this.url}${id}`;
-    return await axios.delete<FetchType>(url, RequestConfig);
+  async create(
+    data: RequestType,
+    RequestConfig: AxiosRequestConfig = {},
+    tries: number = DefaultTriesCount,
+  ): Promise<AxiosResponse<FetchType>> {
+    RequestConfig = this.setAuthenticationHeader(RequestConfig);
+
+    const result = await axios
+      .post<FetchType>(this.url, data, RequestConfig)
+      .catch(() => {
+        if (tries === 0) {
+          throw new Error(`Item ${this.url} did not created!`);
+        }
+
+        return this.create(data, RequestConfig, tries - 1);
+      });
+
+    return result;
   }
 
-  compileUrlPath(url: string, queryParams?: QueryParam): string {
-    if (!queryParams) return url;
+  async update(
+    id: EntityId,
+    data: Partial<RequestType>,
+    RequestConfig: AxiosRequestConfig = {},
+    tries: number = DefaultTriesCount,
+  ): Promise<AxiosResponse<FetchType>> {
+    const url = `${this.url}${id}`;
+    return await axios
+      .patch<FetchType>(url, data, this.setAuthenticationHeader(RequestConfig))
+      .catch(() => {
+        if (tries === 0) {
+          throw new Error(`Item ${this.url} did not updated!`);
+        }
 
-    if (Object.keys(queryParams).length > 0) {
-      url += '?';
+        return this.update(id, data, RequestConfig, tries - 1);
+      });
+  }
+
+  async remove(
+    id: EntityId,
+    RequestConfig: AxiosRequestConfig = {},
+    tries: number = DefaultTriesCount,
+  ): Promise<AxiosResponse<FetchType>> {
+    const url = `${this.url}${id}`;
+    return await axios
+      .delete<FetchType>(url, this.setAuthenticationHeader(RequestConfig))
+      .catch(() => {
+        if (tries === 0) {
+          throw new Error(`Item ${this.url} did not updated!`);
+        }
+
+        return this.remove(id, RequestConfig, tries - 1);
+      });
+  }
+
+  private setAuthenticationHeader(RequestConfig: AxiosRequestConfig) {
+    const tokenValue = CSI.getCredential('access');
+    const headerValue = `Bearer ${tokenValue}`;
+
+    if (!RequestConfig.headers) {
+      RequestConfig['headers'] = {};
     }
 
-    Object.entries(queryParams).forEach(([qn, qv]) => {
-      url += `${qn}=${qv}&`;
-    });
-    return url;
+    RequestConfig.headers['Authorization'] = headerValue;
+
+    return RequestConfig;
   }
 }
